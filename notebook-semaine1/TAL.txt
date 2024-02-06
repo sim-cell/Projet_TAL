@@ -1,0 +1,42 @@
+RITAL Projet TAL:
+
+Deadline code 1 mars
+
+Serveur d'évaluation : 10 chances d'évaluation
+______________________________________________________________________________________
+
+Movie : 2000 exemples
+pretraitement :
+	nettoyer vocab
+	garder les majuscules ou non (lower case)
+BoW : 
+	BoW binaire ou un comptage plus intéressant mieux que binaire?
+	2 gram ou 1 gram? qui est mieux? il faut savoir si "positive" ou "négative"
+
+Modèle simple lorsque le nb d'exemple en apprentissage est faible
+2000 exemples => plus de risque de surapprentissage avec des modèles compliqués.
+
+BoW : seuil à max features = 10 000 ou 60 000?
+
+Learning:
+	Balancing : supprimer dans la classe majoritaire et ajouter dans la classe minoritaire = régularization
+	Post processing : smoothing : lissage mieux par résiduels pour distinguer les phrases
+
+Eval : On teste l'accuracy
+25000 => 12500 positives et 12500 négatives
+
+______________________________________________________________________________________
+
+Locuteurs (C vs M):
+57000 exemples mais données pas équilibrées
+-Il faut garder majuscule car dans les discours il y a beaucoup de nom propres.
+57000 exemples => moins de risque de surapprentissage
+-Il vaut mieuw des N-grams car les phrases sont plus complèxes à comprendre que juste "positive" ou "négative".
+-fiscore sur classe minoritaire comme positive (pareil pour AUC PR)
+-Eval:
+	On teste :
+	-f1_score => precision/reappel = TP/(TP+(FN+FP)/2)
+	-AUC ROC et AUC PR : évaluent le ranking : 
+		prédiction : [p1 p2 p3 p4 p5] -> [p_sigma1 ... p_sigma5] par ordre décroissant
+		labes :      [1  1  -1 -1  1]
+		=prédict_proba
