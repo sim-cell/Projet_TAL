@@ -40,3 +40,19 @@ Locuteurs (C vs M):
 		prédiction : [p1 p2 p3 p4 p5] -> [p_sigma1 ... p_sigma5] par ordre décroissant
 		labes :      [1  1  -1 -1  1]
 		=prédict_proba
+
+_____________________________________________________________________________________
+Challenges : 20 soumissions par binome max
+daha iyi sonuc olmasi icin pipeline duzeltiyoruz genel mantik olarak
+ikisi icin de fichier .txt koyuyoruz 
+movies de basinda p ve n var positive negative icin
+sonuc yaptigimiz cross vala yakin olmali
+
+Serveur:
+movie icin her ligne de sadece n ya da p yazacak .txt de
+accuracy i maximiser etmeye calisacagiz
+
+predifents ta desequilibré donneler
+her line da M in olasiligi olacak .txt de cunku Mitt classe minoritaire
+bunda f1 auc ap onemli
+
