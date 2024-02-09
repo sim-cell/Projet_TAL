@@ -29,7 +29,17 @@ def save_pred(pred):
     directory = "./predictions"
     index = len(os.listdir(directory))+1 #nb de fichiers + 1 = l'indice du nouveau fichier
     filename = os.path.join(directory,f'test_{index}.txt')
-    np.savetxt(filename, pred, fmt="%s")
+    with open(filename,"w") as file:
+        for i in range(len(pred)):
+            if pred[i]==0:
+                file.write("N")
+            elif pred[i]==1:
+                file.write("P")
+            else :
+                print("Error, value not 0 or 1")
+            if i!=len(pred)-1:
+                file.write("\n")
+    
 
 
 def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,save=False):
@@ -52,23 +62,21 @@ def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,
     # Vectorization
     vec = vectorizer(preprocessor=preprocessor,**vect_params)
     txts_train = vec.fit_transform(alltxts_train)
-
+    txts_test = vec.transform(alltxts_test)
     # Training
-    [X_train, X_test, y_train, y_test]  = train_test_split(txts_train, labs_train, test_size=0.2, random_state=10, shuffle=True)
+    # [X_train, X_test, y_train, y_test]  = train_test_split(txts_train, labs_train, test_size=0.2, random_state=10, shuffle=True)
 
     # Modélisation 
     mod = model(**model_params)
     mod.fit(txts_train,labs_train)
 
     # Prédiction
-    pred_train = mod.predict(X_train)
-    pred_test = mod.predict(X_test)
-
-    pred = arr = np.where(pred_test == 0, "N", "P")
-
+    pred_train = mod.predict(txts_train)
+    pred_test = mod.predict(txts_test)
+    print(pred_test[:4])
     if save==True:
         save_pred(pred_test)
 
-    return pred
+    return pred_test
 
 

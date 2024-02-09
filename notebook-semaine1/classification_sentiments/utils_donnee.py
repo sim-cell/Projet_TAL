@@ -9,7 +9,7 @@ import re
 import os.path
 import string
 import nltk
-from nltk.stem.snowball import FrenchStemmer
+from nltk.stem.snowball import EnglishStemmer
 from wordcloud import WordCloud
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 from collections import Counter
@@ -32,6 +32,7 @@ def load_movies(path2data): # 1 classe par répertoire
 def load_movies_test(path2data):
     with open(path2data, 'r', encoding='utf-8') as file:
         lines = file.readlines()
+    print(len(lines))
     return lines
 
 # Suppression de la ponctuation
@@ -63,8 +64,8 @@ def remove_tags(text):
 # Stemming
 nltk.download('punkt') #décommenter ça si vous n'avez pas encore téléchargé
 def stem(text):
-    french_stemmer = FrenchStemmer()
-    words = nltk.word_tokenize(text, language='french')
-    stemmed_words = [french_stemmer.stem(word) for word in words]
+    english_stemmer = EnglishStemmer()
+    words = nltk.word_tokenize(text, language='english')
+    stemmed_words = [english_stemmer.stem(word) for word in words]
     stemmed_text = ' '.join(stemmed_words)
     return stemmed_text

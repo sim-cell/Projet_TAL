@@ -43,7 +43,7 @@ def save_pred(pred):
    # X_vec = vec.
    # scores = cross_val_score(model,X,Y,cv=cv)
 
-def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,save=False):
+def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,save=True):
     """Faire une prediction sur le fichier selon preprocessor, vectorizer, model donnés.
     Entrée : file : nom du fichier
              preprocessor : preprocessor pour nettoyer les données
@@ -70,12 +70,15 @@ def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,
     mod.fit(txts_train,labs_train)
 
     # Prédiction
-    pred = mod.predict(txts_test)
-    pred = np.where(pred == -1, 'M','C')
+    probabilites = mod.predict_proba(txts_test)
+    proba_M = probabilites[:,0]
+    pred =  mod.predict(txts_test)
+    print(pred[0],proba_M[0])
+    #pred = np.where(pred == -1, 'M','C')
 
     if save==True:
-        save_pred(pred)
+        save_pred(proba_M)
 
-    return pred
+    return proba_M
 
 
