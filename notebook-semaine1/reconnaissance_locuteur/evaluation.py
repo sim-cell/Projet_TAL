@@ -71,9 +71,9 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params):
     precision = precision_score(y_test, pred, average='weighted')
 
     # for auc_roc, not sure if I have to use pred or proba?
-    auc_m = roc_auc_score(y_test, proba_M) # not sure about this one
-    roc_auc_weighted = roc_auc_score(y_test, pred, average='weighted')
-    pr_auc = average_precision_score(y_test, proba_M)
+    auc_m = roc_auc_score(y_test, proba_M)
+    roc_auc_weighted = roc_auc_score(y_test, pred, average='weighted') # not very sure about this one
+    ap = average_precision_score(y_test, proba_M)
 
     print("Accuracy:", accuracy)
     print("F1 Score (weighted):", f1_weighted)
@@ -82,7 +82,7 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params):
     print("Precision (weighted):", precision)
     print("ROC AUC (weighted):", roc_auc_weighted)
     print("ROC AUC sur Mitterrand (minoritaire):", auc_m)
-    print("PR AUC sur Mitterrand (minoritaire):", pr_auc)
+    print("AP sur Mitterrand (minoritaire):", ap)
     #return proba_M
 
 def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,save=True):
