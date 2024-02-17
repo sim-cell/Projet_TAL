@@ -15,7 +15,7 @@ from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from collections import Counter
 from utils_donnee import *
-from sklearn.metrics import roc_auc_score, f1_score, accuracy_score
+from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, precision_score, average_precision_score
 from sklearn.model_selection import cross_val_score, train_test_split
 
 def save_pred(pred):
@@ -42,6 +42,48 @@ def save_pred(pred):
     #vec = vectorizer(**vect_params)
    # X_vec = vec.
    # scores = cross_val_score(model,X,Y,cv=cv)
+
+def eval_test(preprocessor,vectorizer,vect_params,model,model_params):
+    """Evaluer une prediction sur le fichier selon preprocessor, vectorizer, model donnés."""
+    # chargement des données train 
+    alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
+    x_train, x_test, y_train, y_test = train_test_split(alltxts_train, labs_train, test_size=0.2, random_state=42, stratify=labs_train)
+
+    # Vectorization
+    vec = vectorizer(preprocessor=preprocessor,**vect_params)
+    x_train_trainsformed = vec.fit_transform(x_train)
+    x_test_trainsformed = vec.transform(x_test)
+
+    # Modélisation 
+    mod = model(**model_params)
+    mod.fit(x_train_trainsformed,y_train)
+
+    # Prédiction
+    pred =  mod.predict(x_test_trainsformed)
+    probabilites = mod.predict_proba(x_test_trainsformed)
+    proba_M = probabilites[:,0]
+
+    # Métriques d'évaluation
+    accuracy = accuracy_score(y_test, pred)
+    f1_weighted = f1_score(y_test, pred, average='weighted')
+    f1 = f1_score(y_test, pred)
+    f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
+    precision = precision_score(y_test, pred, average='weighted')
+
+    # for auc_roc, not sure if I have to use pred or proba?
+    auc_m = roc_auc_score(y_test, proba_M) # not sure about this one
+    roc_auc_weighted = roc_auc_score(y_test, pred, average='weighted')
+    pr_auc = average_precision_score(y_test, proba_M)
+
+    print("Accuracy:", accuracy)
+    print("F1 Score (weighted):", f1_weighted)
+    print("F1 Score:", f1)
+    print("F1 Score sur Mitterrand (minoritaire):", f1_minority)
+    print("Precision (weighted):", precision)
+    print("ROC AUC (weighted):", roc_auc_weighted)
+    print("ROC AUC sur Mitterrand (minoritaire):", auc_m)
+    print("PR AUC sur Mitterrand (minoritaire):", pr_auc)
+    #return proba_M
 
 def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,save=True):
     """Faire une prediction sur le fichier selon preprocessor, vectorizer, model donnés.
