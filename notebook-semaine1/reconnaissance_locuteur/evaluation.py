@@ -20,8 +20,12 @@ from sklearn.model_selection import cross_val_score, train_test_split, GridSearc
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import RandomOverSampler
 from itertools import product
-from sklearn.pipeline import Pipeline
+#from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from nltk.corpus import stopwords
+from sklearn.naive_bayes import MultinomialNB
+import xgboost as xgb
+from sklearn.preprocessing import LabelEncoder
 
 
 def save_pred(pred):
@@ -183,38 +187,101 @@ def find_best_params(preprocessor,vectorizer,vect_params,model,model_params):
     
     return best_vect_params, best_score
 
-def best_params_lr(preprocessor):
-   
+def best_params_lr(preprocessor_f,vect_params,f1=False,auc=False):
+    """
+    Trouver les meuilleurs paramètres pour la regression logistique. 
+    La métrique est soit f1 sur Mitterand soit roc auc sur Chirac.
+    """
+
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
 
-    tfidf_pipeline = Pipeline([
-    ('tfidf_vectorizer', TfidfVectorizer(preprocessor=preprocessor))
-    ])
-
     lr_pipeline = Pipeline([
-    ('tfidf_pipeline', tfidf_pipeline),
-    ('oversampler', RandomOverSampler(random_state=42)),
+    ('tfidf_vectorizer', TfidfVectorizer(preprocessor=preprocessor_f, **vect_params)),
+    ('sampling', RandomOverSampler(random_state=42)),
     ('lr', LogisticRegression())
     ])
 
     grid_params = {
-    'lr__penalty': ['l1', 'l2'],
-    'lr__C': [0.1, 1, 10, 100],
     'lr__solver': ['liblinear'],
-    'tfidf_pipeline__tfidf_vectorizer__max_df': [0.5, 0.75, 1.0],
-    'tfidf_pipeline__tfidf_vectorizer__binary': [True, False],
-    'tfidf_pipeline__tfidf_vectorizer__stop_words': [stopwords.words('french'), None],
-    'tfidf_pipeline__tfidf_vectorizer__min_df': [2, 3, 5], 
-    'tfidf_pipeline__tfidf_vectorizer__ngram_range': [(1, 2), (1, 3), (2, 3)], 
-    'tfidf_pipeline__tfidf_vectorizer__use_idf': [True, False],
-    'tfidf_pipeline__tfidf_vectorizer__sublinear_tf': [True, False],
-    'tfidf_pipeline__tfidf_vectorizer__max_features': [None, 1000, 5000, 10000]
+    'lr__penalty': ['l1', 'l2'],
+    'lr__C': [0.1, 1, 10, 100]
     }
 
-    custom_scorer = make_scorer(f1_score, greater_is_better=True,  pos_label=-1) # f1 score sur Mitterrand
+    if(f1):
+        custom_scorer = make_scorer(f1_score, greater_is_better=True,  pos_label=-1) # f1 score sur Mitterrand
+    elif(auc):
+        custom_scorer = 'roc_auc'
+    else:
+        raise ValueError("Only one of f1 or auc must be True.")
+    
     grid = GridSearchCV(lr_pipeline, grid_params, scoring=custom_scorer, n_jobs=-1)
     grid.fit(alltxts_train, labs_train)
     print("Best Score: ", grid.best_score_)
-    print("Best Params: ", grid.best_params_)
+    print("Best Logistic Regression Params: ", grid.best_params_)
+    return grid.best_score_, grid.best_params_
+
+def best_params_nb(preprocessor_f,vect_params,f1=False,auc=False):
+   
+    # chargement des données train 
+    alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
+
+    mnb_pipeline = Pipeline([
+    ('tfidf_vectorizer', TfidfVectorizer(preprocessor=preprocessor_f, **vect_params)),
+    ('sampling', RandomOverSampler(random_state=42)),
+    ('mnb', MultinomialNB())
+    ])
+
+    grid_params = {
+    'mnb__alpha': np.linspace(0.5, 1.5, 6),
+    'mnb__fit_prior': [True, False]
+    }
+
+    if(f1):
+        custom_scorer = make_scorer(f1_score, greater_is_better=True,  pos_label=-1) # f1 score sur Mitterrand
+    elif(auc):
+        custom_scorer = 'roc_auc'
+    else:
+        raise ValueError("Only one of f1 or auc must be True.")
+
+    grid = GridSearchCV(mnb_pipeline, grid_params, scoring=custom_scorer, n_jobs=-1)
+    grid.fit(alltxts_train, labs_train)
+    print("Best Score: ", grid.best_score_)
+    print("Best Naive Bayes Params: ", grid.best_params_)
+    return grid.best_score_, grid.best_params_
+
+def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
+   
+    # chargement des données train 
+    alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
+
+    # Preprocess des labels car XGBoost prend des labels 0 et 1
+    label_encoder = LabelEncoder()
+    labs_train = label_encoder.fit_transform(labs_train)
+
+    xgb_pipeline = Pipeline([
+    ('tfidf_vectorizer', TfidfVectorizer(preprocessor=preprocessor_f, **vect_params)),
+    ('sampling', RandomOverSampler(random_state=42)),
+    ('xgb', xgb.XGBClassifier())
+    ])
+
+    grid_params = {
+    'xgb__subsample': [0.6, 0.8, 1.0],
+    'xgb__min_child_weight': [1, 5, 10],
+    'xgb__gamma': [0.5, 1, 1.5, 2, 5],
+    'xgb__colsample_bytree': [0.6, 0.8, 1.0],
+    'xgb__max_depth': [3, 4, 5],
+    }
+
+    if(f1):
+        custom_scorer = make_scorer(f1_score, greater_is_better=True,  pos_label=0) # f1 score sur Mitterrand
+    elif(auc):
+        custom_scorer = 'roc_auc'
+    else:
+        raise ValueError("Only one of f1 or auc must be True.")
+
+    grid = GridSearchCV(xgb_pipeline, grid_params, scoring=custom_scorer, n_jobs=-1)
+    grid.fit(alltxts_train, labs_train)
+    print("Best Score: ", grid.best_score_)
+    print("Best XGBoost Params: ", grid.best_params_)
     return grid.best_score_, grid.best_params_
