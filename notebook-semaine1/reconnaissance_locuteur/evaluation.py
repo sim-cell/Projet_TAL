@@ -16,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from collections import Counter
 from utils_donnee import *
 from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, precision_score, average_precision_score, make_scorer
-from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV
+from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import RandomOverSampler
 from itertools import product
@@ -26,6 +26,7 @@ from nltk.corpus import stopwords
 from sklearn.naive_bayes import MultinomialNB
 import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
+from sklearn.svm import LinearSVC
 
 
 def save_pred(pred):
@@ -57,6 +58,12 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     """Evaluer une prediction sur le fichier selon preprocessor, vectorizer, model donnés."""
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
+
+    if(model==xgb.XGBClassifier):
+        # Preprocess des labels car XGBoost prend des labels 0 et 1
+        label_encoder = LabelEncoder()
+        labs_train = label_encoder.fit_transform(labs_train)
+    
     x_train, x_test, y_train, y_test = train_test_split(alltxts_train, labs_train, test_size=0.2, random_state=42, stratify=labs_train)
     
     # Vectorization
@@ -71,13 +78,18 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     elif over_sample:
         sampler = RandomOverSampler(random_state=42)
         x_train_trainsformed, y_train = sampler.fit_resample(x_train_trainsformed, y_train)
-
+    
     # Modélisation 
     mod = model(**model_params)
     mod.fit(x_train_trainsformed,y_train)
 
     # Prédiction
     pred =  mod.predict(x_test_trainsformed)
+    if(model==LinearSVC):
+            f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
+            print("F1 Score sur Mitterrand (minoritaire):", f1_minority)
+            return
+    
     probabilites = mod.predict_proba(x_test_trainsformed)
     proba_M = probabilites[:,0]
     proba_C = probabilites[:,1]
@@ -85,7 +97,10 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     # Métriques d'évaluation
     accuracy = accuracy_score(y_test, pred)
     f1 = f1_score(y_test, pred)
-    f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
+    if(model==xgb.XGBClassifier):
+        f1_minority = f1_score(y_test, pred, pos_label=0) # pour Mitterrand
+    else:
+        f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
     precision = precision_score(y_test, pred)
 
     # for auc_roc, not sure if I have to use pred or proba?
@@ -97,6 +112,8 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     #print("F1 Score:", f1)
     #print("Precision:", precision)
     #print("ROC AUC sur Mitterrand (minoritaire):", auc_m)
+
+    # these 3 metrics are what's used in the server
     print("F1 Score sur Mitterrand (minoritaire):", f1_minority)
     print("ROC AUC sur Chirac:", auc_c)
     print("AP sur Mitterrand (minoritaire):", ap)
@@ -189,7 +206,7 @@ def find_best_params(preprocessor,vectorizer,vect_params,model,model_params):
 
 def best_params_lr(preprocessor_f,vect_params,f1=False,auc=False):
     """
-    Trouver les meuilleurs paramètres pour la regression logistique. 
+    Trouver les meuilleurs paramètres pour la regression logistique avec gridsearch. 
     La métrique est soit f1 sur Mitterand soit roc auc sur Chirac.
     """
 
@@ -222,6 +239,10 @@ def best_params_lr(preprocessor_f,vect_params,f1=False,auc=False):
     return grid.best_score_, grid.best_params_
 
 def best_params_nb(preprocessor_f,vect_params,f1=False,auc=False):
+    """
+    Trouver les meuilleurs paramètres pour Naive Bayes avec gridsearch. 
+    La métrique est soit f1 sur Mitterand soit roc auc sur Chirac.
+    """
    
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
@@ -251,6 +272,10 @@ def best_params_nb(preprocessor_f,vect_params,f1=False,auc=False):
     return grid.best_score_, grid.best_params_
 
 def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
+    """
+    Trouver les meuilleurs paramètres pour XGBoost avec random search. 
+    La métrique est soit f1 sur Mitterand soit roc auc sur Chirac.
+    """
    
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
@@ -265,7 +290,7 @@ def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
     ('xgb', xgb.XGBClassifier())
     ])
 
-    grid_params = {
+    dico_params = {
     'xgb__subsample': [0.6, 0.8, 1.0],
     'xgb__min_child_weight': [1, 5, 10],
     'xgb__gamma': [0.5, 1, 1.5, 2, 5],
@@ -274,14 +299,14 @@ def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
     }
 
     if(f1):
-        custom_scorer = make_scorer(f1_score, greater_is_better=True,  pos_label=0) # f1 score sur Mitterrand
+        custom_scorer = make_scorer(f1_score, greater_is_better=True, pos_label=0) # f1 score sur Mitterrand
     elif(auc):
         custom_scorer = 'roc_auc'
     else:
         raise ValueError("Only one of f1 or auc must be True.")
 
-    grid = GridSearchCV(xgb_pipeline, grid_params, scoring=custom_scorer, n_jobs=-1)
-    grid.fit(alltxts_train, labs_train)
-    print("Best Score: ", grid.best_score_)
-    print("Best XGBoost Params: ", grid.best_params_)
-    return grid.best_score_, grid.best_params_
+    random_search = RandomizedSearchCV(xgb_pipeline, param_distributions=dico_params, n_iter=50, scoring=custom_scorer, n_jobs=-1, cv=3, random_state=42, verbose=0)
+    random_search.fit(alltxts_train, labs_train)
+    print("Best Score: ", random_search.best_score_)
+    print("Best XGBoost Params: ", random_search.best_params_)
+    return random_search.best_score_, random_search.best_params_
