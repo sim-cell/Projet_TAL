@@ -27,6 +27,9 @@ from sklearn.naive_bayes import MultinomialNB
 import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import LinearSVC
+import warnings
+#warnings.filterwarnings("ignore", message="Your stop_words may be inconsistent with your preprocessing.")
+
 
 
 def save_pred(pred):
@@ -108,16 +111,35 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     auc_c = roc_auc_score(y_test, proba_C)
     ap = average_precision_score(y_test, proba_M)
 
-    #print("Accuracy:", accuracy)
-    #print("F1 Score:", f1)
-    #print("Precision:", precision)
-    #print("ROC AUC sur Mitterrand (minoritaire):", auc_m)
+    print("Accuracy:", "%.4f"%accuracy)
+    print("F1 Score:", "%.4f"%f1)
+    print("Precision:", "%.4f"%precision)
+    print("ROC AUC sur Mitterrand (minoritaire):", "%.4f"%auc_m)
 
     # these 3 metrics are what's used in the server
-    print("F1 Score sur Mitterrand (minoritaire):", f1_minority)
-    print("ROC AUC sur Chirac:", auc_c)
-    print("AP sur Mitterrand (minoritaire):", ap)
+    print("-----Metrics du serveur--------")
+    print("F1 Score sur Mitterrand (minoritaire):", "%.4f"%f1_minority)
+    print("ROC AUC sur Chirac:", "%.4f"%auc_c)
+    print("AP sur Mitterrand (minoritaire):", "%.4f"%ap)
     #return proba_M
+    return accuracy,f1,f1_minority,auc_c,ap
+
+def accuracy_difference(result1,result2):
+    """Renvoie quand et le taux des cas où le resultat1 était plus précis / accurate.
+    1 si resultat1 > resultat2, 2 si resultat2>resultat1 et 0 s'il y a une égalité.
+    """
+    res = []
+    nb_count = 0
+    for i in range(len(result1)) :
+        r1,r2 = result1[i],result2[i]
+        if r1>r2:
+            res.append(1)
+            nb_count+=1
+        elif r2>r1:
+            res.append(2)
+        else:
+            res.append(0)
+    return res,nb_count/len(result1)
 
 def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,over_sample=False,save=True):
     """Faire une prediction sur le fichier selon preprocessor, vectorizer, model donnés.
@@ -310,3 +332,4 @@ def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
     print("Best Score: ", random_search.best_score_)
     print("Best XGBoost Params: ", random_search.best_params_)
     return random_search.best_score_, random_search.best_params_
+

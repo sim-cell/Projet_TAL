@@ -9,6 +9,7 @@ import re
 import os.path
 import string
 import nltk
+import unicodedata
 from nltk.stem.snowball import FrenchStemmer
 from wordcloud import WordCloud
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
@@ -55,6 +56,15 @@ def ponc_suppression(text):
 def chiffre_suppression(text):
     return re.sub('[0-9]+', '', text)
 
+# Suppression des majuscules 
+# non appliquée
+def uppercase_suppression(text):
+    return text.lower()
+
+# Suppression d'accent et char non normalisée
+def accent_suppression(text):
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode("utf-8")
+
 # Transformation des mots entièrement en majuscule en marqueurs spécifiques
 def transform_uppercase(text, marker="<UPPER>"):
     words = text.split()
@@ -66,13 +76,21 @@ def transform_uppercase(text, marker="<UPPER>"):
             new_text.append(word) 
     return ' '.join(new_text)
 
+# Trouver les lignes contenant des balises
+def find_lines_with_tags(texts):
+    lines_with_tags = []
+    for i, text in enumerate(texts):
+        if re.search(r'<[^>]+>', text):
+            lines_with_tags.append(i)
+    return lines_with_tags
+
 # Supression des balises
 def remove_tags(text):
     t = re.compile(r'<[^>]+>')
     return t.sub('',text)
 
 # Stemming
-nltk.download('punkt') #décommenter ça si vous n'avez pas encore téléchargé
+#nltk.download('punkt') 
 def stem(text):
     french_stemmer = FrenchStemmer()
     words = nltk.word_tokenize(text, language='french')
