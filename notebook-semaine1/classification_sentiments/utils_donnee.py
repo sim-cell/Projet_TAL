@@ -45,6 +45,22 @@ def ponc_suppression(text):
 def chiffre_suppression(text):
     return re.sub('[0-9]+', '', text)
 
+# Comptage des ratings 
+def count_ratings(text):
+    pattern = r'\b[0-9]/10\b'
+    ratings = re.findall(pattern,text)
+    if len(ratings)>0:
+        return len(ratings) #, ratings
+    return None
+
+# Suppression des majuscules 
+def uppercase_suppression(text):
+    return text.lower()
+
+# Ne prend en compte que la première ligne
+def premier_ligne(text):
+    return text.split('\n')[0]
+
 # Transformation des mots entièrement en majuscule en marqueurs spécifiques
 def transform_uppercase(text, marker="<UPPER>"):
     words = text.split()
@@ -56,16 +72,24 @@ def transform_uppercase(text, marker="<UPPER>"):
             new_text.append(word) 
     return ' '.join(new_text)
 
+# Trouver les lignes contenant des balises
+def find_lines_with_tags(texts):
+    lines_with_tags = []
+    for i, text in enumerate(texts):
+        if re.search(r'<[^>]+>', text):
+            lines_with_tags.append(i)
+    return lines_with_tags
+
 # Supression des balises
 def remove_tags(text):
     t = re.compile(r'<[^>]+>')
     return t.sub('',text)
 
 # Stemming
-nltk.download('punkt') #décommenter ça si vous n'avez pas encore téléchargé
+#nltk.download('punkt') #décommenter ça si vous n'avez pas encore téléchargé
 def stem(text):
     english_stemmer = EnglishStemmer()
-    words = nltk.word_tokenize(text, language='english')
+    words = nltk.word_tokenize(text)
     stemmed_words = [english_stemmer.stem(word) for word in words]
     stemmed_text = ' '.join(stemmed_words)
     return stemmed_text
