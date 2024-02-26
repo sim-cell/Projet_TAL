@@ -20,7 +20,6 @@ from sklearn.model_selection import cross_val_score, train_test_split, GridSearc
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import RandomOverSampler
 from itertools import product
-#from sklearn.pipeline import Pipeline
 from imblearn.pipeline import Pipeline
 from nltk.corpus import stopwords
 from sklearn.naive_bayes import MultinomialNB
@@ -29,7 +28,23 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import LinearSVC
 import warnings
 #warnings.filterwarnings("ignore", message="Your stop_words may be inconsistent with your preprocessing.")
+from sklearn.calibration import CalibratedClassifierCV
+import lightgbm as lgb
 
+
+# gaussian doesnt work
+def gaussianKernel(sigma):
+    """Return a 1D Gaussian kernel."""
+    n = int(2 * np.ceil(3 * sigma) + 1)
+    x = np.arange(-n // 2, n // 2 + 1)
+    kern = np.exp(-(x**2) / (2 * sigma**2))
+    return kern / kern.sum()
+
+def gaussian_smoothing(data, sigma):
+    """Apply 1D Gaussian smoothing"""
+    kernel = gaussianKernel(sigma)
+    smoothed_data = np.convolve(data, kernel, mode='same')
+    return smoothed_data
 
 
 def save_pred(pred):
@@ -57,7 +72,7 @@ def save_pred(pred):
    # X_vec = vec.
    # scores = cross_val_score(model,X,Y,cv=cv)
 
-def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sample=False,over_sample=False):
+def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sample=False,over_sample=False,post_processing=False):
     """Evaluer une prediction sur le fichier selon preprocessor, vectorizer, model donnés."""
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
@@ -88,6 +103,7 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
 
     # Prédiction
     pred =  mod.predict(x_test_trainsformed)
+
     if(model==LinearSVC):
             f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
             print("F1 Score sur Mitterrand (minoritaire):", f1_minority)
@@ -104,12 +120,18 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
         f1_minority = f1_score(y_test, pred, pos_label=0) # pour Mitterrand
     else:
         f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
+
     precision = precision_score(y_test, pred)
 
-    # for auc_roc, not sure if I have to use pred or proba?
     auc_m = roc_auc_score(y_test, proba_M)
     auc_c = roc_auc_score(y_test, proba_C)
     ap = average_precision_score(y_test, proba_M)
+
+    if post_processing:
+        pred = gaussian_smoothing(pred, 1)
+        f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
+        print("F1 Score sur Mitterrand (minoritaire):", "%.4f"%f1_minority)
+        return
 
     print("Accuracy:", "%.4f"%accuracy)
     print("F1 Score:", "%.4f"%f1)
@@ -168,8 +190,11 @@ def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,
         sampler = RandomOverSampler(random_state=42)
         txts_train, labs_train = sampler.fit_resample(txts_train, labs_train)
 
-    # Modélisation 
+    # Modélisation
     mod = model(**model_params)
+    if(model==LinearSVC):
+        # LinearSVC n'a pas predict_proba
+        mod = CalibratedClassifierCV(mod, method='sigmoid')
     mod.fit(txts_train,labs_train)
 
     # Prédiction
@@ -333,3 +358,37 @@ def best_params_xgb(preprocessor_f,vect_params,f1=False,auc=False):
     print("Best XGBoost Params: ", random_search.best_params_)
     return random_search.best_score_, random_search.best_params_
 
+def best_params_lgbm(preprocessor_f, vect_params, f1=False, auc=False):
+    """
+    Trouver les meuilleurs paramètres pour LightGBM avec random search. 
+    La métrique est soit f1 sur Mitterand soit roc auc sur Chirac.
+    """
+
+    # chargement des données train 
+    alltxts_train, labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
+
+    lgbm_pipeline = Pipeline([
+        ('tfidf_vectorizer', TfidfVectorizer(preprocessor=preprocessor_f, **vect_params)),
+        ('sampling', RandomOverSampler(random_state=42)),
+        ('lgbm', lgb.LGBMClassifier())
+    ])
+
+    params = {
+        'lgbm__num_leaves': [5, 20, 30, 50],
+        'lgbm__learning_rate': [0.05, 0.1, 0.2],
+        'lgbm__n_estimators': [50, 100, 150],
+        'lgbm__verbose': [-1]
+    }
+
+    if f1:
+        custom_scorer = make_scorer(f1_score, greater_is_better=True, pos_label=-1)  # f1 score sur Mitterrand
+    elif auc:
+        custom_scorer = 'roc_auc'
+    else:
+        raise ValueError("Only one of f1 or auc must be True.")
+
+    random_search = RandomizedSearchCV(lgbm_pipeline, param_distributions=params, n_iter=50, scoring=custom_scorer, n_jobs=-1, cv=3, random_state=42, verbose=0)
+    random_search.fit(alltxts_train, labs_train)
+    print("Best Score: ", random_search.best_score_)
+    print("Best LightGBM Params: ", random_search.best_params_)
+    return random_search.best_score_, random_search.best_params_
