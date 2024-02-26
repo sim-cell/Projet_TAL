@@ -31,21 +31,19 @@ import warnings
 from sklearn.calibration import CalibratedClassifierCV
 import lightgbm as lgb
 
-
-# gaussian doesnt work
-def gaussianKernel(sigma):
-    """Return a 1D Gaussian kernel."""
-    n = int(2 * np.ceil(3 * sigma) + 1)
-    x = np.arange(-n // 2, n // 2 + 1)
-    kern = np.exp(-(x**2) / (2 * sigma**2))
-    return kern / kern.sum()
-
-def gaussian_smoothing(data, sigma):
-    """Apply 1D Gaussian smoothing"""
-    kernel = gaussianKernel(sigma)
-    smoothed_data = np.convolve(data, kernel, mode='same')
-    return smoothed_data
-
+def smoothing(pred,window_size=3):
+    step_size = 1
+    nb_windows = (len(pred) - window_size) // step_size + 1
+    filtered = np.zeros_like(pred)
+    for i in range(nb_windows):
+        start = i * step_size
+        end = start + window_size
+        window = pred[start:end]
+        mean = np.mean(window)
+        filtered[start:end] = mean
+    threshold = 0.5
+    filtered = np.where(filtered > threshold, 1, -1)
+    return filtered
 
 def save_pred(pred):
     """ Sauvegarder les prédictions dans un fichier
@@ -110,6 +108,9 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
             return
     
     probabilites = mod.predict_proba(x_test_trainsformed)
+    if post_processing:
+        probabilites = smoothing(probabilites)
+    
     proba_M = probabilites[:,0]
     proba_C = probabilites[:,1]
 
@@ -127,11 +128,7 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     auc_c = roc_auc_score(y_test, proba_C)
     ap = average_precision_score(y_test, proba_M)
 
-    if post_processing:
-        pred = gaussian_smoothing(pred, 1)
-        f1_minority = f1_score(y_test, pred, pos_label=-1) # pour Mitterrand
-        print("F1 Score sur Mitterrand (minoritaire):", "%.4f"%f1_minority)
-        return
+    
 
     print("Accuracy:", "%.4f"%accuracy)
     print("F1 Score:", "%.4f"%f1)
