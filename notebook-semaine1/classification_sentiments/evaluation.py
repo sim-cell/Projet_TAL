@@ -92,7 +92,9 @@ def eval_split(preprocessor,vectorizer,vect_params,model,model_params,graphe=Tru
 
      # Vectorization
     vec = vectorizer(preprocessor=preprocessor,**vect_params)
-
+    
+    txts_train = vec.fit_transform(x_train)
+    txts_test = vec.transform(x_test)
 
     # Sampling si nécessaire
     if under_sample:
@@ -101,9 +103,6 @@ def eval_split(preprocessor,vectorizer,vect_params,model,model_params,graphe=Tru
     elif over_sample:
         sampler = RandomOverSampler(random_state=42)
         txts_train, y_train = sampler.fit_resample(txts_train, y_train)
-    else:
-        txts_train = vec.fit_transform(x_train)
-        txts_test = vec.transform(x_test)
 
     # Modélisation 
     mod = model(**model_params)
@@ -340,11 +339,7 @@ def comparaison_evaluation_single(preprocessor,vectorizer,vect_params,model_para
     print(f'Taux d\'accuracy de LinReg contre LinSVM : {nb_fois1}')
     res,nb_fois2 = accuracy_difference(lr,m)
     print(f'Taux d\'accuracy de LinReg contre Multinom : {nb_fois2}')
-    if result_type=='m':
-        return m
-    if result_type=='svm':
-        return svm
-    return lr
+    return [lr,svm,m]
 
 
 #comparaison des k pour crossval
@@ -367,6 +362,7 @@ def comparaison_crossval(preprocessor,vectorizer,vect_params,model,model_params,
     best_avg_precision = -1
     best_proba_pos = None
     best_pred = None   
+    tous_res = []
     for cv in cvs: 
         if isinstance(mod, LinearSVC):
             proba_pos = cross_val_predict(mod, txts_train, labs_train, cv=cv, method='decision_function') #pas vraiment proba_pos mais je veux pas changer ts les variables
@@ -381,6 +377,7 @@ def comparaison_crossval(preprocessor,vectorizer,vect_params,model,model_params,
         f1 = f1_score(labs_train, pred)
         roc_auc = roc_auc_score(labs_train, proba_pos)
         avg_precision = average_precision_score(labs_train, proba_pos)
+        tous_res.append([accuracy,f1,roc_auc,avg_precision])
         if accuracy>best_accuracy and f1>best_f1:
             best_k = cv
             best_accuracy = accuracy
@@ -407,7 +404,7 @@ def comparaison_crossval(preprocessor,vectorizer,vect_params,model,model_params,
         plt.title('Courbe ROC')
         plt.show()
 
-    return best_k,[best_accuracy,best_f1,best_roc_auc,best_avg_precision]
+    return best_k,[best_accuracy,best_f1,best_roc_auc,best_avg_precision],tous_res
 
 
 #comparaison des k pour crossval avec KFold
@@ -462,15 +459,19 @@ def comparaison_crossval_grain(preprocessor,vectorizer,vect_params,model,model_p
     print("Acc\tF1\tROC-AUC\tAP:")
     print("%.4f"%best_accuracy,"\t%.4f"%best_f1,"\t%.4f"%best_roc_auc,"\t%.4f"%best_avg_precision)
 
-    if graphe:
-        #afficher roc courbe
-        fpr, tpr, thresholds = roc_curve(labs_train, best_proba_pos)
-        plt.figure()
-        plt.plot(fpr, tpr, label='courbe ROC' % best_roc_auc)
-        plt.xlabel('FP')
-        plt.ylabel('TP')
-        plt.legend(loc="lower right")
-        plt.title('Courbe ROC')
-        plt.show()
 
     return best_k,[best_accuracy,best_f1,best_roc_auc,best_avg_precision]
+
+def plot_evaluation_metrics(results_data, k_list):
+    colors = ['b', 'g', 'r', 'c']
+    for i,metric in enumerate(results_data.columns):
+        x_values = k_list
+        y_values = results_data[metric]
+        plt.plot(x_values, y_values, label=f'{metric}', color=colors[i])
+
+    plt.xlabel('Value of k in Cross-Validation')
+    plt.ylabel('k')
+    plt.title('Evaluation Metrics for Different Values of k in Cross-Validation')
+    plt.legend()
+    plt.grid(True)
+    plt.show()

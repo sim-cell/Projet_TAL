@@ -37,9 +37,8 @@ def load_movies_test(path2data):
 
 # Suppression de la ponctuation
 def ponc_suppression(text):
-    punc = string.punctuation 
-    punc += '\n\r\t'
-    return text.translate(str.maketrans(punc, ' ' * len(punc)))
+    regex = re.compile('[%s]' % re.escape(string.punctuation))
+    return regex.sub('', text)
 
 # Suppression des chiffres
 def chiffre_suppression(text):
@@ -82,8 +81,7 @@ def find_lines_with_tags(texts):
 
 # Supression des balises
 def remove_tags(text):
-    t = re.compile(r'<[^>]+>')
-    return t.sub('',text)
+    return re.sub(r'<[^>]+>', '', text)
 
 # Stemming
 #nltk.download('punkt') #décommenter ça si vous n'avez pas encore téléchargé
