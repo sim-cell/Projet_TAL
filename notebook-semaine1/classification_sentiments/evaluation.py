@@ -202,15 +202,15 @@ def eval_crossval(preprocessor,vectorizer,vect_params,model,model_params,graphe=
         start = time.time()
      # Vectorization
     vec = vectorizer(preprocessor=preprocessor,**vect_params)
-        # Sampling si nécessaire
+    
+    txts_train = vec.fit_transform(alltxts_train)
+    # Sampling si nécessaire
     if under_sample:
         sampler = RandomUnderSampler(random_state=42)
-        txts_train, labs_train = sampler.fit_resample(alltxts_train, labs_train)
+        txts_train, labs_train = sampler.fit_resample(txts_train, labs_train)
     elif over_sample:
         sampler = RandomOverSampler(random_state=42)
-        txts_train, labs_train = sampler.fit_resample(alltxts_train, labs_train)
-    else:
-        txts_train = vec.fit_transform(alltxts_train)
+        txts_train, labs_train = sampler.fit_resample(txts_train, labs_train)
 
     # Modélisation 
     mod = model(**model_params)
