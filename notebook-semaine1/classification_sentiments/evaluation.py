@@ -2,6 +2,9 @@
 # SOYKOK Aylin 28713301 - CELIK Simay 28713301
 # Fonctions d'évaluation - Films
 
+# Les fonctions étaient crées au fur et au mésure afin 
+# d'avoir des résultats lisibles donc elles ne sont pas les plus belles.
+
 import numpy as np
 import matplotlib.pyplot as plt
 import codecs
@@ -270,47 +273,58 @@ def accuracy_difference(result1,result2):
             nb_count+=1
     return res,nb_count/len(result1)
 
+import pandas as pd
 def comparaison_evaluation(preprocessor,vect_params_tf,vect_params_c,model_params_LR,model_params_SVM,eval_func=eval_split,result_type='lr',timer=False,**args):
-    print("LOGISTIC REGRESSION")
-    print("Résultats Tfidf")
+    """Compare des vectorizers et des classifiers différents."""
+    # l'affichage de eval_func devient illisible donc on crée un dataframe et l'affiche a la fin
+    data = {
+    'Model': ['Logistic Regression', 'Logistic Regression', 'SVM', 'SVM', 'MultinomialNB', 'MultinomialNB'],
+    'Vectorizer': ['Tfidf', 'CountVectorizer', 'Tfidf', 'CountVectorizer', 'Tfidf', 'CountVectorizer'],
+    }
+    
+    df = pd.DataFrame(data)
     lr_tfidf_sans = eval_func(preprocessor=preprocessor, vectorizer=TfidfVectorizer, vect_params=vect_params_tf,
     model=LogisticRegression, model_params=model_params_LR,graphe=False,timer=timer,**args)
-    print("_________________________")
-    print("Résultats CountVectorizer")
     lr_countv_sans = eval_func(preprocessor=preprocessor, vectorizer=CountVectorizer, vect_params=vect_params_c,
     model=LogisticRegression, model_params=model_params_LR,graphe=False,timer=timer,**args)
-    print("_________________________")
-    res,nb_fois = accuracy_difference(lr_tfidf_sans,lr_countv_sans)
-    print(f'Taux d\'accuracy de Tfidf contre Count : {nb_fois}')
-    print("_____________________________________________")
-    print("\nSVM ")
-    print("Résultats Tfidf")
+    res1,nb_fois1 = accuracy_difference(lr_tfidf_sans,lr_countv_sans)
+    
     svm_tfidf_sans = eval_func(preprocessor=preprocessor, vectorizer=TfidfVectorizer, vect_params=vect_params_tf,
     model=LinearSVC, model_params=model_params_SVM,graphe=False,timer=timer,**args)
-    print("_________________________")
-    print("Résultats CountVectorizer")
     svm_countv_sans = eval_func(preprocessor=preprocessor, vectorizer=CountVectorizer, vect_params=vect_params_c,
     model=LinearSVC, model_params=model_params_SVM,graphe=False,timer=timer,**args)
-    print("_________________________")
-    res,nb_fois = accuracy_difference(svm_tfidf_sans,svm_countv_sans)
-    print(f'Taux d\'accuracy de Tfidf contre Count : {nb_fois}')
-    print("_____________________________________________")
-    print("\n MultinomialNB ")
-    print("Résultats Tfidf")
+    res2,nb_fois2 = accuracy_difference(svm_tfidf_sans,svm_countv_sans)
+
     m_tfidf_sans = eval_func(preprocessor=preprocessor, vectorizer=TfidfVectorizer, vect_params=vect_params_tf,
     model=MultinomialNB, model_params={},graphe=False,timer=timer,**args)
-    print("_________________________")
-    print("Résultats CountVectorizer")
     m_countv_sans = eval_func(preprocessor=preprocessor, vectorizer=CountVectorizer, vect_params=vect_params_c,
     model=MultinomialNB, model_params={},graphe=False,timer=timer,**args)
-    print("_________________________")
-    res,nb_fois = accuracy_difference(m_tfidf_sans,m_countv_sans)
-    print(f'Taux d\'accuracy de Tfidf contre Count : {nb_fois}')
+    
+    res3,nb_fois3 = accuracy_difference(m_tfidf_sans,m_countv_sans)
+    print("______________________________________________________")
+    print(f'LogisticRegression : Taux d\'accuracy de Tfidf contre Count : {nb_fois1}')
+    print(f'LinearSVC : Taux d\'accuracy de Tfidf contre Count : {nb_fois2}')
+    print(f'MultinomialNB : Taux d\'accuracy de Tfidf contre Count : {nb_fois3}')
     print("______________________________________________________")
     res,nb_fois1 = accuracy_difference(lr_tfidf_sans,svm_tfidf_sans)
     print(f'Taux d\'accuracy de LinReg contre LinSVM : {nb_fois1}')
     res,nb_fois2 = accuracy_difference(lr_tfidf_sans,m_tfidf_sans)
     print(f'Taux d\'accuracy de LinReg contre Multinom : {nb_fois2}')
+    acc = []
+    f1 = []
+    rocauc = []
+    ap = []
+    for res in [lr_tfidf_sans,lr_countv_sans,svm_tfidf_sans,svm_countv_sans,m_tfidf_sans,m_countv_sans]:
+        acc.append(res[0])
+        f1.append(res[1])
+        rocauc.append(res[2])
+        ap.append(res[3])
+
+    df["Acc"] = acc
+    df["F1"] = f1
+    df["ROC-AUC"] = rocauc
+    df['AP'] = ap
+    print(df)
     if result_type=='m':
         return m_tfidf_sans
     if result_type=='svm':
