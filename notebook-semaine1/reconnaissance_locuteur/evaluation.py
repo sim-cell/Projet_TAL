@@ -238,6 +238,11 @@ def prediction_generator(preprocessor,vectorizer,vect_params,model,model_params,
     # chargement des données test
     alltxts_test = load_pres_test("./datasets/AFDpresidentutf8/corpus.tache1.test.utf8")
 
+    if(model==xgb.XGBClassifier):
+        # Preprocess des labels car XGBoost prend des labels 0 et 1
+        label_encoder = LabelEncoder()
+        labs_train = label_encoder.fit_transform(labs_train)
+    
     # Vectorization
     vec = vectorizer(preprocessor=preprocessor,**vect_params)
     txts_train = vec.fit_transform(alltxts_train)
