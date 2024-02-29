@@ -32,19 +32,6 @@ import warnings
 from sklearn.calibration import CalibratedClassifierCV
 import lightgbm as lgb
 
-def smoothing(pred,window_size=3):
-    step_size = 1
-    nb_windows = (len(pred) - window_size) // step_size + 1
-    filtered = np.zeros_like(pred)
-    for i in range(nb_windows):
-        start = i * step_size
-        end = start + window_size
-        window = pred[start:end]
-        mean = np.mean(window)
-        filtered[start:end] = mean
-    threshold = 0.5
-    filtered = np.where(filtered > threshold, 1, -1)
-    return filtered
 
 def save_pred(pred):
     """ Sauvegarder les prédictions dans un fichier
@@ -56,7 +43,7 @@ def save_pred(pred):
     filename = os.path.join(directory,f'test_{index}.txt')
     np.savetxt(filename, pred, fmt="%s")
 
-def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sample=False,over_sample=False,post_processing=False,graphe=False,timer=False):
+def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sample=False,over_sample=False,graphe=False,timer=False):
     """Evaluer une prediction sur le fichier selon preprocessor, vectorizer, model donnés."""
     # chargement des données train 
     alltxts_train,labs_train = load_pres("./datasets/AFDpresidentutf8/corpus.tache1.learn.utf8")
@@ -94,8 +81,6 @@ def eval_test(preprocessor,vectorizer,vect_params,model,model_params,under_sampl
     #         return
     
     probabilites = mod.predict_proba(x_test_trainsformed)
-    if post_processing:
-        probabilites = smoothing(probabilites)
     
     proba_M = probabilites[:,0]
     proba_C = probabilites[:,1]
